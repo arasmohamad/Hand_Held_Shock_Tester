@@ -1,0 +1,80 @@
+
+//include standard libraries
+#define F_CPU 16000000UL
+#include<stdio.h>
+#include<stdint.h>
+#include <unistd.h>
+#include<avr/interrupt.h>
+#define ADC_PIN 0 1 2 //what is the ADC channel we’ll use
+// function prototype
+#include<avr/io.h>
+#include<util/delay.h>
+#include"lcd.h"
+#include"i2cmaster.h"
+#include"ds1621.h"
+//#include"usart.h"
+uint16_t adc_read(uint8_t adc_channal);
+
+int main (){
+	uint16_t adc_result,adc_result1,adc_result2;
+	// select vref=Avcc
+	ADMUX=(1<<REFS0);
+	//set prescaler to 128 and turn on the ADC module
+	ADCSRA=(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0)|(1<<ADEN);
+		
+	//io_redirect();
+	//uart_init();
+	i2c_init();
+	LCD_init();
+	//ds1621_init();
+int roll=0;
+float x=0;
+float y=0;
+float z=0;
+double voltage_x=0;
+double voltage_y=0;
+double voltage_z=0;
+while(1)
+{
+adc_result=adc_read(0);
+voltage_x=(double)(adc_result*(0.005057));
+adc_result1=adc_read(1);
+voltage_y=(double)(adc_result1*(0.005057));
+adc_result2=adc_read(2);
+voltage_z=(double)(adc_result2*(0.005057));
+x=(voltage_x-1.65)/0.33;
+y=(voltage_y-1.65)/0.33;
+z=(voltage_z-1.70)/0.33;
+int angle_z =atan2(-y,-x)*57.2957795+180;
+int angle_x =atan2(-y,-z)*57.2957795+180;
+int angle_y =atan2(-x,-z)*57.2957795+180;
+ roll =(((atan2(y,z) * 180)/3.14) +180);
+LCD_set_cursor(0,0);
+printf("X:%.2f|%d",x,angle_x);
+LCD_set_cursor(0,1);
+printf("Y:%.2f|%d",y,angle_y);
+LCD_set_cursor(0,2);
+printf("Z:%.2f|%d",z,angle_z);
+LCD_set_cursor(0,3);
+printf("Roll:%d",roll);
+_delay_ms(500);
+LCD_clear();
+}
+}
+uint16_t adc_read(uint8_t adc_channel)
+{
+	ADMUX &=0xf0; // clear any previously used channel, but keep internal reference
+	ADMUX|=adc_channel;// set the desired channel
+	//start a conversion
+	ADCSRA|=(1<<ADSC);
+	// now wait for the conversion to complete
+	while( (ADCSRA & (1<<ADSC)) );
+	// now we have the result, so we return it to the calling function as a 16 bit unsigned int
+	return ADC;
+}
+long map(long input,long in_mini,long in_max,long out_mini,long out_max)
+{
+	long out=0;
+	out=((input-in_mini)*(out_max-out_mini))/((in_max-in_mini)+out_mini);
+	return(out);
+}
